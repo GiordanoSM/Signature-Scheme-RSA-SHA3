@@ -11,15 +11,16 @@ def main():
 
   N, e, d, private_key = RSAGen(key_size)
 
-  ciphertext = Enc(private_key, msg)
+  hash_sha3 = msg
+
+  signature = Enc(private_key, hash_sha3)
 
   print("OK")
 
-  #print(ciphertext)
+  #print(signature)
 
   '''for i in [N, e, d]:
     print(i)'''
-
   
 def RSAGen(key_size): 
 
@@ -41,12 +42,12 @@ def RSAGen(key_size):
 
   return public_numbers.n, public_numbers.e, private_numbers.d, private_key
 
-def Enc(private_key, msg):
+def Enc(private_key, hash_sha3):
 
   public_key = private_key.public_key()
 
-  #Usando sha2
-  ciphertext = public_key.encrypt(msg.encode('utf-8'), padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
+  #Usando sha2-256
+  ciphertext = public_key.encrypt(hash_sha3.encode('utf-8'), padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
 
   return ciphertext
 
