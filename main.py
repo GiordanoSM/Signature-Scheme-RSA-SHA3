@@ -13,9 +13,12 @@ def main():
 
   hash_sha3 = msg
 
-  signature = Enc(private_key, hash_sha3)
+  signature = Enc(private_key.public_key(), hash_sha3)
+
+  message = Dec(private_key, signature)
 
   print("OK")
+  print(message)
 
   #print(signature)
 
@@ -42,14 +45,20 @@ def RSAGen(key_size):
 
   return public_numbers.n, public_numbers.e, private_numbers.d, private_key
 
-def Enc(private_key, hash_sha3):
-
-  public_key = private_key.public_key()
+## Faz com public_key pois modulo nao suporta assinatura com OAEP
+def Enc(public_key, hash_sha3):
 
   #Usando sha2-256
   ciphertext = public_key.encrypt(hash_sha3.encode('utf-8'), padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
 
   return ciphertext
+
+## Faz com private_key pois modulo nao suporta assinatura com OAEP
+def Dec(private_key, ciphertext):
+
+  hash_sha3 = private_key.decrypt(ciphertext, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
+
+  return hash_sha3.decode('utf-8')
 
 if __name__ == "__main__":
   main()
