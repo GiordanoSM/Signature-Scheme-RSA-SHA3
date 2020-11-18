@@ -11,11 +11,11 @@ def main():
 
   N, e, d, private_key = RSAGen(key_size)
 
-  hash_sha3 = msg
+  hash_sha3 = msg.encode('utf-8')
 
   signature = Enc(private_key.public_key(), hash_sha3)
 
-  message = Dec(private_key, signature)
+  message = Dec(private_key, signature).decode('utf-8')
 
   print("OK")
   print(message)
@@ -49,7 +49,7 @@ def RSAGen(key_size):
 def Enc(public_key, hash_sha3):
 
   #Usando sha2-256
-  ciphertext = public_key.encrypt(hash_sha3.encode('utf-8'), padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
+  ciphertext = public_key.encrypt(hash_sha3, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
 
   return ciphertext
 
@@ -58,7 +58,7 @@ def Dec(private_key, ciphertext):
 
   hash_sha3 = private_key.decrypt(ciphertext, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
 
-  return hash_sha3.decode('utf-8')
+  return hash_sha3
 
 if __name__ == "__main__":
   main()
