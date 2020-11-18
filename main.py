@@ -3,6 +3,8 @@
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 
+INCORRECT = False
+
 def main():
 
   key_size = 1024
@@ -12,36 +14,21 @@ def main():
   #Key generation
   N, e, d, private_key = RSAGen(key_size)
 
-  #Hashing da msg
-  hash_sha3 = HashSHA3(msg.encode('utf-8'))
+  #Processo de assinatura
+  signed_msg = Sign(private_key.public_key(), msg.encode('utf-8'))
 
-  #Assinatura da mensagem
-  signature = Enc(private_key.public_key(), hash_sha3)
-
-  #Decifração da assinatura
-  rcv_hash = Dec(private_key, signature)
-
-  #Verificação
-  rcv_msg = msg
-  new_hash = HashSHA3(rcv_msg.encode('utf-8'))
-
-  if(new_hash == rcv_hash):
-    print("Assinatura correta.")
-  
-  else:
-    print("Assinatura incorreta!!! Documento modificado ou de outro remetente.")
-
-
+  #Envio da mensagem assinada
+  status = Send(private_key, signed_msg)
+ 
   print("OK")
 
-  #print(rcv_hash)
-  #print(new_hash)
-
-  #print(signature)
+  #print(signed_msg)
 
   '''for i in [N, e, d]:
     print(i)'''
-  
+
+#------------------------------------------------------------------------------------------------------------------
+
 def RSAGen(key_size): 
 
   public_e = 65537
@@ -85,6 +72,52 @@ def HashSHA3(msg_bytes):
   digest = hash_sha3.finalize()
 
   return digest
+
+#Realizar a assinantura (deveria ser realizada pela key privada)
+def Sign(public_key, message):
+
+  #Hashing da msg
+  msg_hash = HashSHA3(message)
+
+  #Geração da assinatura
+  signature = Enc(public_key, msg_hash)
+
+  return [signature, message]
+
+#Verificação da assinatura (deveria ser realizada pela key publica)
+def Verify(private_key, signed_msg):
+
+  signature = signed_msg[0]
+  rcv_msg = signed_msg[1]
+
+  #Decifração da assinatura
+  rcv_hash = Dec(private_key, signature)
+
+  #Verificação
+  new_hash = HashSHA3(rcv_msg)
+
+  if(new_hash == rcv_hash):
+    print("Assinatura correta.")
+    return True
+  
+  else:
+    print("Assinatura incorreta!!! Documento modificado ou de outro remetente.")
+    return False
+
+
+#Idealmente o destinatario ja deveria saber a key publica
+def Send(private_key, signed_msg):
+
+  msg = signed_msg[1]
+
+  #Modifica a mensagem caso requerido (INCORRECT = True)
+  if len(msg) > 0 and INCORRECT:
+    msg = msg.swapcase()
+
+  signed_msg[1] = msg
+
+  #Passa a mensagem para o destinatário
+  return Verify(private_key, signed_msg)
 
 if __name__ == "__main__":
   main()
