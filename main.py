@@ -23,20 +23,20 @@ def main(input_file):
   finally:
     pass
 
-  msg = 'testando msg'
+  #msg = 'testando msg'
 
   #Key generation
   N, e, d, private_key = RSAGen(key_size)
 
   #Processo de assinatura
-  signed_msg = Sign(private_key.public_key(), msg.encode('utf-8'))
+  signed_msg = Sign(private_key.public_key(), msg)
 
   #Envio da mensagem assinada
   status = Send(private_key, signed_msg)
  
   print("OK")
 
-  #print(signed_msg)
+  print(signed_msg)
 
   '''for i in [N, e, d]:
     print(i)'''
