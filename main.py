@@ -1,14 +1,28 @@
 # https://cryptography.io/en/latest/
 
+import sys
+
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 
 INCORRECT = False
 
-def main():
+def main(input_file):
 
   key_size = 1024
+
+  try:
+
+    with open(input_file, 'rb') as f:
+      msg = f.read()
   
+  except IOError:
+    print("Arquivo não existente!")
+    exit()
+
+  finally:
+    pass
+
   msg = 'testando msg'
 
   #Key generation
@@ -120,4 +134,9 @@ def Send(private_key, signed_msg):
   return Verify(private_key, signed_msg)
 
 if __name__ == "__main__":
-  main()
+
+  if len(sys.argv) < 2:
+    print("Por favor, passar o nome do arquivo a ser assinado.")
+  else:
+    input_file = sys.argv[1]
+    main(input_file)
