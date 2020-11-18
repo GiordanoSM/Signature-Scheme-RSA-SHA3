@@ -9,16 +9,33 @@ def main():
   
   msg = 'testando msg'
 
+  #Key generation
   N, e, d, private_key = RSAGen(key_size)
 
-  hash_sha3 = msg.encode('utf-8')
+  #Hashing da msg
+  hash_sha3 = HashSHA3(msg.encode('utf-8'))
 
+  #Assinatura da mensagem
   signature = Enc(private_key.public_key(), hash_sha3)
 
-  message = Dec(private_key, signature).decode('utf-8')
+  #Decifração da assinatura
+  rcv_hash = Dec(private_key, signature)
+
+  #Verificação
+  rcv_msg = msg
+  new_hash = HashSHA3(rcv_msg.encode('utf-8'))
+
+  if(new_hash == rcv_hash):
+    print("Assinatura correta.")
+  
+  else:
+    print("Assinatura incorreta!!! Documento modificado ou de outro remetente.")
+
 
   print("OK")
-  print(message)
+
+  #print(rcv_hash)
+  #print(new_hash)
 
   #print(signature)
 
@@ -59,6 +76,15 @@ def Dec(private_key, ciphertext):
   hash_sha3 = private_key.decrypt(ciphertext, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
 
   return hash_sha3
+
+#SHA3 com 256 bit result/digest
+def HashSHA3(msg_bytes):
+
+  hash_sha3 = hashes.Hash(hashes.SHA3_256())
+  hash_sha3.update(msg_bytes)
+  digest = hash_sha3.finalize()
+
+  return digest
 
 if __name__ == "__main__":
   main()
