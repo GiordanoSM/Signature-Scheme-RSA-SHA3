@@ -3,7 +3,7 @@
 import sys
 
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 
 INCORRECT = False
 
@@ -28,15 +28,34 @@ def main(input_file):
   #Key generation
   N, e, d, private_key = RSAGen(key_size)
 
+  public_key = private_key.public_key()
+
+  #Arquivo com private key
+  with open('key.key', 'wb') as f:
+    pem = private_key.private_bytes(
+      encoding= serialization.Encoding.PEM,
+      format= serialization.PrivateFormat.TraditionalOpenSSL,
+      encryption_algorithm= serialization.NoEncryption()
+      )
+    f.write(pem)
+  
+  #Arquivo com public key
+  with open('public_key.key', 'wb') as f:
+    pem = public_key.public_bytes(
+      encoding= serialization.Encoding.PEM,
+      format= serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    f.write(pem)
+
   #Processo de assinatura
-  signed_msg = Sign(private_key.public_key(), msg)
+  signed_msg = Sign(public_key, msg)
 
   #Envio da mensagem assinada
   status = Send(private_key, signed_msg)
  
   print("OK")
 
-  print(signed_msg)
+  #print(signed_msg)
 
   '''for i in [N, e, d]:
     print(i)'''
