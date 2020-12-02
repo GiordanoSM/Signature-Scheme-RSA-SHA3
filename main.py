@@ -4,6 +4,7 @@ import sys
 
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography import exceptions
 
 INCORRECT = False
 
@@ -13,7 +14,7 @@ def main(arguments):
   pk_file = 'public_key.key'
   operation = arguments[1].lower()
 
-  #Key generation-----------------------------------------
+  #-------------------------Key generation------------------------------
 
   if operation == 'genrsa':
 
@@ -40,7 +41,7 @@ def main(arguments):
       )
       f.write(pem)
 
-  #File signing-----------------------------------------
+  #-------------------------------File signing----------------------------------
   elif operation == 'sign' or operation == 'verify':
 
     if len(arguments) < 3:
@@ -75,17 +76,41 @@ def main(arguments):
           )
 
       except IOError:
-        print("ERRO: Arquivo da chave não existente!")
+        print("ERRO: Arquivo da chave privada não existente!")
+        exit()
+
+      except ValueError:
+        print("ERRO: Estrutura da chave privada não pode ser descodificada!")
+        exit()
+
+      except exceptions.UnsupportedAlgorithm:
+        print("ERRO: Tipo de chave privada não suportada!")
         exit()
 
       finally:
         pass
 
       #Load da chave pública
-      with open(pk_file, 'rb') as key_file:
-        public_key = serialization.load_pem_public_key(
-          key_file.read(),
-        )
+      try:
+        with open(pk_file, 'rb') as key_file:
+          public_key = serialization.load_pem_public_key(
+            key_file.read(),
+          )
+
+      except IOError:
+        print("ERRO: Arquivo da chave pública não existente!")
+        exit()
+
+      except ValueError:
+        print("ERRO: Estrutura da chave pública não pode ser descodificada!")
+        exit()
+
+      except exceptions.UnsupportedAlgorithm:
+        print("ERRO: Tipo de chave pública não suportada!")
+        exit()
+
+      finally:
+        pass
     
 
       #Processo de assinatura
@@ -104,7 +129,7 @@ def main(arguments):
   '''for i in [N, e, d]:
     print(i)'''
 
-#------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------Funções utilizadas------------------------------------
 
 def RSAGen(key_size): 
 
