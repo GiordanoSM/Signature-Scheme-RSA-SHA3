@@ -118,6 +118,28 @@ def main(arguments):
       #Processo de assinatura
       signed_msg = Sign(private_key, msg)
 
+      public_key_dump = public_key.public_bytes(
+        encoding= serialization.Encoding.PEM,
+        format= serialization.PublicFormat.SubjectPublicKeyInfo
+      )
+
+      formatted_signed_msg = Format(public_key_dump, signed_msg[0], signed_msg[1], input_file)
+
+      extension_i = input_file.rfind('.')
+
+      #Removendo a extensão do nome do arquivo
+      if extension_i != -1:
+        input_file_we = input_file[:extension_i-1]
+
+      else:
+        input_file_we = input_file
+
+      formatted_file_name = 'signed_'+input_file_we
+
+      #Arquivo formatado com mensagem assinada
+      with open(formatted_file_name, 'wb') as f:
+        f.write(formatted_signed_msg)
+
       #Envio da mensagem assinada
       status = Send(public_key, signed_msg)
  
@@ -154,19 +176,22 @@ def RSAGen(key_size):
   return public_numbers.n, public_numbers.e, private_numbers.d, private_key
 
 #Faz com public_key pois modulo nao suporta assinatura com OAEP
+'''
 def Enc(public_key, hash_sha3):
 
   #Usando sha2-256
   ciphertext = public_key.encrypt(hash_sha3, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
 
   return ciphertext
-
+'''
 #Faz com private_key pois modulo nao suporta assinatura com OAEP
+'''
 def Dec(private_key, ciphertext):
 
   hash_sha3 = private_key.decrypt(ciphertext, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
 
   return hash_sha3
+'''
 
 #SHA3 com 256 bit result/digest
 def HashSHA3(msg_bytes):
@@ -241,10 +266,30 @@ def Send(public_key, signed_msg):
   #Passa a mensagem para o destinatário
   return Verify(public_key, signed_msg)
 
+#Baseada na formatação S/MIME
+def Format(public_key_dump, signature, message, msg_file_name):
+
+  protocol = b'RSA'
+  padding = b'PSS'
+  hash_type = b'SHA3_256'
+  boundary = b'------714A286D976BF3E58D9D671E37CBCF7C\n'
+
+  header = b'protocol= %(protocol)b;padding= %(padding)b;hash_type= %(hash_type)b;boundary= %(boundary)b' %{b'protocol': protocol, b'padding': padding, b'hash_type': hash_type, b'boundary': boundary}
+
+  public_key_block = b'%(boundary)b%(public_key)b' %{b'boundary': boundary, b'public_key': public_key_dump}
+
+  signature_block = b'%(boundary)b%(signature)b' %{b'boundary': boundary, b'signature': signature}
+
+  message_block = b'%(boundary)b%(message)b' %{b'boundary': boundary, b'message': message}
+
+  formatted_signed_msg = header + public_key_block + signature_block + message_block
+
+  return formatted_signed_msg
+
 if __name__ == "__main__":
 
   if len(sys.argv) < 2:
-    print("ERRO: Por favor, indique a operação a ser realizada.") #falar quando a operação n definida
+    print("ERRO: Por favor, indique a operação a ser realizada.")
 
   else:
     main(sys.argv)
