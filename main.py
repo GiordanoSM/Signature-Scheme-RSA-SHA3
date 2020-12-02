@@ -41,7 +41,7 @@ def main(arguments):
       )
       f.write(pem)
 
-    print('Chaves criadas com sucesso! Arquivos: {} e {}.'.format(sk_file, pk_file))
+    print('Chaves criadas com sucesso! Arquivos: {} e {}'.format(sk_file, pk_file))
 
   #-------------------------------File signing----------------------------------
   elif operation == 'sign' or operation == 'verify':
@@ -116,17 +116,17 @@ def main(arguments):
     
 
       #Processo de assinatura
-      signed_msg = Sign(public_key, msg)
+      signed_msg = Sign(private_key, msg)
 
       #Envio da mensagem assinada
-      status = Send(private_key, signed_msg)
+      status = Send(public_key, signed_msg)
  
   else:
     print('ERRO: Operação desejada não definida.')
 
   print("OK")
 
-  #print(signed_msg)
+  #print(status)
 
   '''for i in [N, e, d]:
     print(i)'''
@@ -153,7 +153,7 @@ def RSAGen(key_size):
 
   return public_numbers.n, public_numbers.e, private_numbers.d, private_key
 
-## Faz com public_key pois modulo nao suporta assinatura com OAEP
+#Faz com public_key pois modulo nao suporta assinatura com OAEP
 def Enc(public_key, hash_sha3):
 
   #Usando sha2-256
@@ -161,7 +161,7 @@ def Enc(public_key, hash_sha3):
 
   return ciphertext
 
-## Faz com private_key pois modulo nao suporta assinatura com OAEP
+#Faz com private_key pois modulo nao suporta assinatura com OAEP
 def Dec(private_key, ciphertext):
 
   hash_sha3 = private_key.decrypt(ciphertext, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
@@ -178,23 +178,26 @@ def HashSHA3(msg_bytes):
   return digest
 
 #Realizar a assinantura (deveria ser realizada pela key privada)
-def Sign(public_key, message):
+def Sign(private_key, message):
 
   #Hashing da msg
   msg_hash = HashSHA3(message)
 
   #Geração da assinatura
-  signature = Enc(public_key, msg_hash)
+  #signature = Enc(public_key, msg_hash)
+
+  signature = private_key.sign(msg_hash, padding.PSS(padding.MGF1(hashes.SHA3_256()), padding.PSS.MAX_LENGTH), hashes.SHA3_256())
 
   return [signature, message]
 
 #Verificação da assinatura (deveria ser realizada pela key publica)
-def Verify(private_key, signed_msg):
+def Verify(public_key, signed_msg):
 
   signature = signed_msg[0]
   rcv_msg = signed_msg[1]
 
   #Decifração da assinatura
+  '''
   rcv_hash = Dec(private_key, signature)
 
   #Verificação
@@ -207,10 +210,25 @@ def Verify(private_key, signed_msg):
   else:
     print("Assinatura incorreta!!! Documento modificado ou de outro remetente.")
     return False
+  '''
+  #Verificação
+  new_hash = HashSHA3(rcv_msg)
 
+  try:
+    public_key.verify(signature, new_hash, padding.PSS(padding.MGF1(hashes.SHA3_256()), padding.PSS.MAX_LENGTH), hashes.SHA3_256())
+
+  except exceptions.InvalidSignature:
+    print("Assinatura incorreta!!! Documento modificado ou de outro remetente.")
+    return False
+
+  finally:
+    pass
+  
+  print("Assinatura correta!")
+  return True
 
 #Idealmente o destinatario ja deveria saber a key publica
-def Send(private_key, signed_msg):
+def Send(public_key, signed_msg):
 
   msg = signed_msg[1]
 
@@ -221,7 +239,7 @@ def Send(private_key, signed_msg):
   signed_msg[1] = msg
 
   #Passa a mensagem para o destinatário
-  return Verify(private_key, signed_msg)
+  return Verify(public_key, signed_msg)
 
 if __name__ == "__main__":
 
