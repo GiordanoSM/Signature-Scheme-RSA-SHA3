@@ -41,6 +41,8 @@ def main(arguments):
       )
       f.write(pem)
 
+    print('Chaves criadas com sucesso! Arquivos: {} e {}.'.format(sk_file, pk_file))
+
   #-------------------------------File signing----------------------------------
   elif operation == 'sign' or operation == 'verify':
 
