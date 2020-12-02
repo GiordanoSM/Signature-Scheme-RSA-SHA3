@@ -7,7 +7,11 @@ from cryptography.hazmat.primitives import hashes, serialization
 
 INCORRECT = False
 
-def main(operation, input_file = None, sk_file = 'key.key', pk_file = 'public_key.key'):
+def main(arguments):
+
+  sk_file = 'key.key'
+  pk_file = 'public_key.key'
+  operation = arguments[1].lower()
 
   #Key generation-----------------------------------------
 
@@ -37,42 +41,62 @@ def main(operation, input_file = None, sk_file = 'key.key', pk_file = 'public_ke
       f.write(pem)
 
   #File signing-----------------------------------------
-  else:
-  
+  elif operation == 'sign' or operation == 'verify':
 
-    #Load da chave privada
-    with open('key.key', 'rb') as key_file:
-      private_key = serialization.load_pem_private_key(
-        key_file.read(),
-        password=None,
-      ) 
+    if len(arguments) < 3:
+      print('ERRO: Indique o nome do arquivo a ser assinado.')
 
-    #Load da chave pública
-    with open('public_key.key', 'rb') as key_file:
-      public_key = serialization.load_pem_public_key(
-        key_file.read(),
-      )
+    else:
+      input_file = arguments[2]
 
-    #Lendo arquivo a ser assinado
+      #Nome do arquivo com chave privada informado
+      if len(arguments) >= 4:
+        sk_file = arguments[3]
 
-    try:
+      #Lendo arquivo a ser assinado
+      try:
 
-      with open(input_file, 'rb') as f:
-        msg = f.read()
+        with open(input_file, 'rb') as f:
+          msg = f.read()
+      
+      except IOError:
+        print("ERRO: Arquivo não existente!")
+        exit()
+
+      finally:
+        pass
+
+      #Load da chave privada
+      try:
+        with open(sk_file, 'rb') as key_file:
+          private_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password=None,
+          )
+
+      except IOError:
+        print("ERRO: Arquivo da chave não existente!")
+        exit()
+
+      finally:
+        pass
+
+      #Load da chave pública
+      with open(pk_file, 'rb') as key_file:
+        public_key = serialization.load_pem_public_key(
+          key_file.read(),
+        )
     
-    except IOError:
-      print("Arquivo não existente!")
-      exit()
 
-    finally:
-      pass
+      #Processo de assinatura
+      signed_msg = Sign(public_key, msg)
 
-    #Processo de assinatura
-    signed_msg = Sign(public_key, msg)
-
-    #Envio da mensagem assinada
-    status = Send(private_key, signed_msg)
+      #Envio da mensagem assinada
+      status = Send(private_key, signed_msg)
  
+  else:
+    print('ERRO: Operação desejada não definida.')
+
   print("OK")
 
   #print(signed_msg)
@@ -175,18 +199,7 @@ def Send(private_key, signed_msg):
 if __name__ == "__main__":
 
   if len(sys.argv) < 2:
-    print("Por favor, indique a operação a ser realizada.") #falar quando a operação n definida
+    print("ERRO: Por favor, indique a operação a ser realizada.") #falar quando a operação n definida
 
   else:
-    operation = sys.argv[1].lower()
-
-    if operation == 'genrsa':
-      main(operation)
-
-    elif len(sys.argv) < 3:
-        print("Por favor, indique também o arquivo a ser assinado.")
-
-    else:
-      operation = sys.argv[1]
-      input_file = sys.argv[2]
-      main(operation, input_file)
+    main(sys.argv)
