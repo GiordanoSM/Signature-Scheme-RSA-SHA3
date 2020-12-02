@@ -7,64 +7,71 @@ from cryptography.hazmat.primitives import hashes, serialization
 
 INCORRECT = False
 
-def main(input_file):
+def main(operation, input_file = None, sk_file = 'key.key', pk_file = 'public_key.key'):
 
-  key_size = 1024
+  #Key generation-----------------------------------------
 
-  try:
+  if operation == 'genrsa':
 
-    with open(input_file, 'rb') as f:
-      msg = f.read()
-  
-  except IOError:
-    print("Arquivo não existente!")
-    exit()
+    key_size = 1024
 
-  finally:
-    pass
+    N, e, d, private_key = RSAGen(key_size)
 
-  #msg = 'testando msg'
+    public_key = private_key.public_key()
 
-  #Key generation
-  N, e, d, private_key = RSAGen(key_size)
-
-  public_key = private_key.public_key()
-
-  #Arquivo com private key
-  with open('key.key', 'wb') as f:
-    pem = private_key.private_bytes(
-      encoding= serialization.Encoding.PEM,
-      format= serialization.PrivateFormat.TraditionalOpenSSL,
-      encryption_algorithm= serialization.NoEncryption()
+    #Arquivo com private key
+    with open(sk_file, 'wb') as f:
+      pem = private_key.private_bytes(
+        encoding= serialization.Encoding.PEM,
+        format= serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm= serialization.NoEncryption()
+        )
+      f.write(pem)
+    
+    #Arquivo com public key
+    with open(pk_file, 'wb') as f:
+      pem = public_key.public_bytes(
+        encoding= serialization.Encoding.PEM,
+        format= serialization.PublicFormat.SubjectPublicKeyInfo
       )
-    f.write(pem)
+      f.write(pem)
+
+  #File signing-----------------------------------------
+  else:
   
-  #Arquivo com public key
-  with open('public_key.key', 'wb') as f:
-    pem = public_key.public_bytes(
-      encoding= serialization.Encoding.PEM,
-      format= serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    f.write(pem)
 
-  #Load da chave privada
-  with open('key.key', 'rb') as key_file:
-    private_key = serialization.load_pem_private_key(
-      key_file.read(),
-      password=None,
-    ) 
+    #Load da chave privada
+    with open('key.key', 'rb') as key_file:
+      private_key = serialization.load_pem_private_key(
+        key_file.read(),
+        password=None,
+      ) 
 
-  #Load da chave pública
-  with open('public_key.key', 'rb') as key_file:
-    public_key = serialization.load_pem_public_key(
-      key_file.read(),
-    )
+    #Load da chave pública
+    with open('public_key.key', 'rb') as key_file:
+      public_key = serialization.load_pem_public_key(
+        key_file.read(),
+      )
 
-  #Processo de assinatura
-  signed_msg = Sign(public_key, msg)
+    #Lendo arquivo a ser assinado
 
-  #Envio da mensagem assinada
-  status = Send(private_key, signed_msg)
+    try:
+
+      with open(input_file, 'rb') as f:
+        msg = f.read()
+    
+    except IOError:
+      print("Arquivo não existente!")
+      exit()
+
+    finally:
+      pass
+
+    #Processo de assinatura
+    signed_msg = Sign(public_key, msg)
+
+    #Envio da mensagem assinada
+    status = Send(private_key, signed_msg)
  
   print("OK")
 
@@ -168,7 +175,18 @@ def Send(private_key, signed_msg):
 if __name__ == "__main__":
 
   if len(sys.argv) < 2:
-    print("Por favor, passar o nome do arquivo a ser assinado.")
+    print("Por favor, indique a operação a ser realizada.") #falar quando a operação n definida
+
   else:
-    input_file = sys.argv[1]
-    main(input_file)
+    operation = sys.argv[1].lower()
+
+    if operation == 'genrsa':
+      main(operation)
+
+    elif len(sys.argv) < 3:
+        print("Por favor, indique também o arquivo a ser assinado.")
+
+    else:
+      operation = sys.argv[1]
+      input_file = sys.argv[2]
+      main(operation, input_file)
