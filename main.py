@@ -47,6 +47,19 @@ def main(input_file):
     )
     f.write(pem)
 
+  #Load da chave privada
+  with open('key.key', 'rb') as key_file:
+    private_key = serialization.load_pem_private_key(
+      key_file.read(),
+      password=None,
+    ) 
+
+  #Load da chave pública
+  with open('public_key.key', 'rb') as key_file:
+    public_key = serialization.load_pem_public_key(
+      key_file.read(),
+    )
+
   #Processo de assinatura
   signed_msg = Sign(public_key, msg)
 
