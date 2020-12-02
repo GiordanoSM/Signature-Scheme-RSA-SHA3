@@ -1,25 +1,129 @@
 # https://cryptography.io/en/latest/
 
+import sys
+
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography import exceptions
 
 INCORRECT = False
 
-def main():
+def main(arguments):
 
-  key_size = 1024
-  
-  msg = 'testando msg'
+  sk_file = 'key.key'
+  pk_file = 'public_key.key'
+  operation = arguments[1].lower()
 
-  #Key generation
-  N, e, d, private_key = RSAGen(key_size)
+  #-------------------------Key generation------------------------------
 
-  #Processo de assinatura
-  signed_msg = Sign(private_key.public_key(), msg.encode('utf-8'))
+  if operation == 'genrsa':
 
-  #Envio da mensagem assinada
-  status = Send(private_key, signed_msg)
+    key_size = 1024
+
+    N, e, d, private_key = RSAGen(key_size)
+
+    public_key = private_key.public_key()
+
+    #Arquivo com private key
+    with open(sk_file, 'wb') as f:
+      pem = private_key.private_bytes(
+        encoding= serialization.Encoding.PEM,
+        format= serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm= serialization.NoEncryption()
+        )
+      f.write(pem)
+    
+    #Arquivo com public key
+    with open(pk_file, 'wb') as f:
+      pem = public_key.public_bytes(
+        encoding= serialization.Encoding.PEM,
+        format= serialization.PublicFormat.SubjectPublicKeyInfo
+      )
+      f.write(pem)
+
+    print('Chaves criadas com sucesso! Arquivos: {} e {}.'.format(sk_file, pk_file))
+
+  #-------------------------------File signing----------------------------------
+  elif operation == 'sign' or operation == 'verify':
+
+    if len(arguments) < 3:
+      print('ERRO: Indique o nome do arquivo a ser assinado.')
+
+    else:
+      input_file = arguments[2]
+
+      #Nome do arquivo com chave privada informado
+      if len(arguments) >= 4:
+        sk_file = arguments[3]
+
+      #Lendo arquivo a ser assinado
+      try:
+
+        with open(input_file, 'rb') as f:
+          msg = f.read()
+      
+      except IOError:
+        print("ERRO: Arquivo não existente!")
+        exit()
+
+      finally:
+        pass
+
+      #Load da chave privada
+      try:
+        with open(sk_file, 'rb') as key_file:
+          private_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password=None,
+          )
+
+      except IOError:
+        print("ERRO: Arquivo da chave privada não existente!")
+        exit()
+
+      except ValueError:
+        print("ERRO: Estrutura da chave privada não pode ser descodificada!")
+        exit()
+
+      except exceptions.UnsupportedAlgorithm:
+        print("ERRO: Tipo de chave privada não suportada!")
+        exit()
+
+      finally:
+        pass
+
+      #Load da chave pública
+      try:
+        with open(pk_file, 'rb') as key_file:
+          public_key = serialization.load_pem_public_key(
+            key_file.read(),
+          )
+
+      except IOError:
+        print("ERRO: Arquivo da chave pública não existente!")
+        exit()
+
+      except ValueError:
+        print("ERRO: Estrutura da chave pública não pode ser descodificada!")
+        exit()
+
+      except exceptions.UnsupportedAlgorithm:
+        print("ERRO: Tipo de chave pública não suportada!")
+        exit()
+
+      finally:
+        pass
+    
+
+      #Processo de assinatura
+      signed_msg = Sign(public_key, msg)
+
+      #Envio da mensagem assinada
+      status = Send(private_key, signed_msg)
  
+  else:
+    print('ERRO: Operação desejada não definida.')
+
   print("OK")
 
   #print(signed_msg)
@@ -27,7 +131,7 @@ def main():
   '''for i in [N, e, d]:
     print(i)'''
 
-#------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------Funções utilizadas------------------------------------
 
 def RSAGen(key_size): 
 
@@ -120,4 +224,9 @@ def Send(private_key, signed_msg):
   return Verify(private_key, signed_msg)
 
 if __name__ == "__main__":
-  main()
+
+  if len(sys.argv) < 2:
+    print("ERRO: Por favor, indique a operação a ser realizada.") #falar quando a operação n definida
+
+  else:
+    main(sys.argv)
