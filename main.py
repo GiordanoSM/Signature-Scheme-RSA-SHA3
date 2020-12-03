@@ -130,7 +130,7 @@ def main(arguments):
 
       #Removendo a extensão do nome do arquivo
       if extension_i != -1:
-        input_file_we = input_file[:extension_i-1]
+        input_file_we = input_file[:extension_i]
 
       else:
         input_file_we = input_file
