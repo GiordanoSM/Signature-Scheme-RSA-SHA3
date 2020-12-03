@@ -11,12 +11,13 @@ INCORRECT = False
 def main(arguments):
 
   sk_file = 'key.key'
-  pk_file = 'public_key.key'
   operation = arguments[1].lower()
 
   #-------------------------Key generation------------------------------
 
   if operation == 'genrsa':
+
+    pk_file = 'public_key.key'
 
     key_size = 1024
 
@@ -44,7 +45,7 @@ def main(arguments):
     print('Chaves criadas com sucesso! Arquivos: {} e {}'.format(sk_file, pk_file))
 
   #-------------------------------File signing----------------------------------
-  elif operation == 'sign' or operation == 'verify':
+  elif operation == 'sign':
 
     if len(arguments) < 3:
       print('ERRO: Indique o nome do arquivo a ser assinado.')
@@ -91,33 +92,14 @@ def main(arguments):
 
       finally:
         pass
-
-      #Load da chave pública
-      try:
-        with open(pk_file, 'rb') as key_file:
-          public_key = serialization.load_pem_public_key(
-            key_file.read(),
-          )
-
-      except IOError:
-        print("ERRO: Arquivo da chave pública não existente!")
-        exit()
-
-      except ValueError:
-        print("ERRO: Estrutura da chave pública não pode ser descodificada!")
-        exit()
-
-      except exceptions.UnsupportedAlgorithm:
-        print("ERRO: Tipo de chave pública não suportada!")
-        exit()
-
-      finally:
-        pass
     
 
       #Processo de assinatura
       signed_msg = Sign(private_key, msg)
 
+      public_key = private_key.public_key()
+
+      #Public key dump
       public_key_dump = public_key.public_bytes(
         encoding= serialization.Encoding.PEM,
         format= serialization.PublicFormat.SubjectPublicKeyInfo
@@ -127,7 +109,7 @@ def main(arguments):
       formatted_signed_msg = Format(public_key_dump, signed_msg[0], signed_msg[1], input_file)
 
       extension_i = input_file.rfind('.')
-
+  
       #Removendo a extensão do nome do arquivo
       if extension_i != -1:
         input_file_we = input_file[:extension_i]
@@ -141,25 +123,81 @@ def main(arguments):
       with open(formatted_file_name, 'wb') as f:
         f.write(formatted_signed_msg)
 
+      print('Assinado com sucesso. Criado arquivo: {}'.format(formatted_file_name))
+
+  #-------------------------------File verification----------------------------------
+  elif operation == 'verify':
+
+    #Precisa do arquivo assinado
+    if len(arguments) < 3:
+      print('ERRO: Indique o nome do arquivo assinado.')
+
+    else:
+
+      formatted_file_name = arguments[2]
+
+      #Se existo o terceiro argumento, é o nome do arquivo com a chave
+      if len(arguments) >= 4:
+
+        have_pk_file = True
+
+        #Load da chave pública
+        try:
+          with open(arguments[3], 'rb') as key_file:
+            public_key = serialization.load_pem_public_key(
+              key_file.read(),
+            )
+
+        except IOError:
+          print("ERRO: Arquivo da chave pública não existente!")
+          exit()
+
+        except ValueError:
+          print("ERRO: Estrutura da chave pública não pode ser descodificada!")
+          exit()
+
+        except exceptions.UnsupportedAlgorithm:
+          print("ERRO: Tipo de chave pública não suportada!")
+          exit()
+
+        finally:
+          pass
+
+      else:
+        have_pk_file = False
+
       #Leitura do arquivo formatado
       with open(formatted_file_name, 'rb') as f:
         formatted_signed_msg = f.read()
 
       #Parsing do arquivo assinado
-      header_dict, public_key, signed_msg = Parsing(formatted_signed_msg)
-
-      #Envio da mensagem assinada
-      status = Send(public_key, signed_msg, header_dict)
+      header_dict, public_key, signed_msg = Parsing(formatted_signed_msg, have_pk_file)
  
+      status = Verify(public_key, signed_msg, header_dict)
+
+      keys = header_dict.keys()
+
+      #Criando arquivo com mensagem original
+      if status:
+        if b'filename' in keys:
+          file_name = header_dict[b'filename'].decode()
+        else:
+          file_name = 'message'
+
+        with open('new_'+file_name, 'wb') as f:
+          f.write(signed_msg[1])
+
+        print('Criado arquivo com a mensagem: {}'.format('new_'+file_name))
+
   else:
     print('ERRO: Operação desejada não definida.')
 
-  print("OK")
 
-  #print(status)
 
-  '''for i in [N, e, d]:
-    print(i)'''
+
+
+
+
 
 #--------------------------------------------Funções utilizadas------------------------------------
 
@@ -289,22 +327,22 @@ def Format(public_key_dump, signature, message, msg_file_name):
   hash_type = b'SHA3_256'
   boundary = b'------714A286D976BF3E58D9D671E37CBCF7C'
 
-  header = b'protocol= %(protocol)b;padding= %(padding)b;hash_type= %(hash_type)b;boundary= %(boundary)b' %{b'protocol': protocol, b'padding': padding, b'hash_type': hash_type, b'boundary': boundary}
+  header = b'protocol= %(protocol)b;padding= %(padding)b;hash_type= %(hash_type)b;boundary= %(boundary)b;filename= %(filename)b' %{b'protocol': protocol, b'padding': padding, b'hash_type': hash_type, b'boundary': boundary, b'filename': msg_file_name.encode()}
 
   header = header + b'\n'
-
-  public_key_block = b'%(boundary)b%(public_key)b' %{b'boundary': boundary, b'public_key': public_key_dump}
 
   signature_block = b'%(boundary)b%(signature)b' %{b'boundary': boundary, b'signature': signature}
 
   message_block = b'%(boundary)b%(message)b' %{b'boundary': boundary, b'message': message}
 
-  formatted_signed_msg = header + public_key_block + signature_block + message_block
+  public_key_block = b'%(boundary)b%(public_key)b' %{b'boundary': boundary, b'public_key': public_key_dump}
+
+  formatted_signed_msg = header + signature_block + message_block + public_key_block
 
   return formatted_signed_msg
 
 #Assume existência de \n no fim do header
-def Parsing(formatted_msg):
+def Parsing(formatted_msg, have_pk_file):
   
   divided = formatted_msg.partition(b'\n')
 
@@ -336,30 +374,32 @@ def Parsing(formatted_msg):
   data_div = data.split(header_dict[b'boundary'])
 
   #Verificando a existencia de campos com a chave pública, assinatura e mensagem. Esperado primeiro elemento vazio.
-  if len(data_div) < 4:
+  if len(data_div) < 3 or (len(data_div) < 4 and not have_pk_file) :
     print('ERRO: Informação faltante no arquivo, erro na formatação')
     exit()
 
-  #Load da chave pública
-  try:
-    public_key = serialization.load_pem_public_key(data_div[1])
-
-  except ValueError:
-    print("ERRO: Estrutura da chave pública não pode ser descodificada!")
-    exit()
-
-  except exceptions.UnsupportedAlgorithm:
-    print("ERRO: Tipo de chave pública não suportada!")
-    exit()
-
-  finally:
-    pass
-
   #Load da assinatura
-  signature = data_div[2]
+  signature = data_div[1]
 
   #Load da mensagem
-  message = data_div[3]
+  message = data_div[2]
+
+  if not have_pk_file:
+
+    #Load da chave pública
+    try:
+      public_key = serialization.load_pem_public_key(data_div[3])
+
+    except ValueError:
+      print("ERRO: Estrutura da chave pública não pode ser descodificada!")
+      exit()
+
+    except exceptions.UnsupportedAlgorithm:
+      print("ERRO: Tipo de chave pública não suportada!")
+      exit()
+
+    finally:
+      pass
 
   return header_dict, public_key, [signature, message]
 
