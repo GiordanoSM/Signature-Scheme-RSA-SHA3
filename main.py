@@ -146,10 +146,10 @@ def main(arguments):
         formatted_signed_msg = f.read()
 
       #Parsing do arquivo assinado
-      header, public_key, signed_msg = Parsing(formatted_signed_msg)
+      header_dict, public_key, signed_msg = Parsing(formatted_signed_msg)
 
       #Envio da mensagem assinada
-      status = Send(public_key, signed_msg)
+      status = Send(public_key, signed_msg, header_dict)
  
   else:
     print('ERRO: Operação desejada não definida.')
@@ -224,7 +224,9 @@ def Sign(private_key, message):
   return [signature, message]
 
 #Verificação da assinatura (deveria ser realizada pela key publica)
-def Verify(public_key, signed_msg):
+#Requer header com componentes esperadas
+#Realizando verificação somente do algoritmo, padding e hash usados na assinatura Sign()
+def Verify(public_key, signed_msg, header_dict):
 
   signature = signed_msg[0]
   rcv_msg = signed_msg[1]
@@ -245,6 +247,11 @@ def Verify(public_key, signed_msg):
     return False
   '''
   #Verificação
+
+  if header_dict[b'protocol'] != b'RSA' or header_dict[b'padding'] != b'PSS' or header_dict[b'hash_type'] != b'SHA3_256':
+    print('ERRO: Configuração de protocolo, padding e hash não suportadas. Verificação não foi possível.')
+    exit()
+
   new_hash = HashSHA3(rcv_msg)
 
   try:
@@ -261,7 +268,7 @@ def Verify(public_key, signed_msg):
   return True
 
 #Idealmente o destinatario ja deveria saber a key publica
-def Send(public_key, signed_msg):
+def Send(public_key, signed_msg, header_dict):
 
   msg = signed_msg[1]
 
@@ -272,7 +279,7 @@ def Send(public_key, signed_msg):
   signed_msg[1] = msg
 
   #Passa a mensagem para o destinatário
-  return Verify(public_key, signed_msg)
+  return Verify(public_key, signed_msg, header_dict)
 
 #Baseada na formatação S/MIME
 def Format(public_key_dump, signature, message, msg_file_name):
@@ -354,7 +361,7 @@ def Parsing(formatted_msg):
   #Load da mensagem
   message = data_div[3]
 
-  return header, public_key, [signature, message]
+  return header_dict, public_key, [signature, message]
 
 if __name__ == "__main__":
 
