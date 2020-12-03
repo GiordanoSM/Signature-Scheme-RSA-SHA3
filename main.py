@@ -123,6 +123,7 @@ def main(arguments):
         format= serialization.PublicFormat.SubjectPublicKeyInfo
       )
 
+      #Formatação do arquivo
       formatted_signed_msg = Format(public_key_dump, signed_msg[0], signed_msg[1], input_file)
 
       extension_i = input_file.rfind('.')
@@ -136,9 +137,16 @@ def main(arguments):
 
       formatted_file_name = 'signed_'+input_file_we
 
-      #Arquivo formatado com mensagem assinada
+      #Criação do arquivo formatado com mensagem assinada
       with open(formatted_file_name, 'wb') as f:
         f.write(formatted_signed_msg)
+
+      #Leitura do arquivo formatado
+      with open(formatted_file_name, 'rb') as f:
+        formatted_signed_msg = f.read()
+
+      #Parsing do arquivo assinado
+      header, public_key, signed_msg = Parsing(formatted_signed_msg)
 
       #Envio da mensagem assinada
       status = Send(public_key, signed_msg)
@@ -272,9 +280,11 @@ def Format(public_key_dump, signature, message, msg_file_name):
   protocol = b'RSA'
   padding = b'PSS'
   hash_type = b'SHA3_256'
-  boundary = b'------714A286D976BF3E58D9D671E37CBCF7C\n'
+  boundary = b'------714A286D976BF3E58D9D671E37CBCF7C'
 
   header = b'protocol= %(protocol)b;padding= %(padding)b;hash_type= %(hash_type)b;boundary= %(boundary)b' %{b'protocol': protocol, b'padding': padding, b'hash_type': hash_type, b'boundary': boundary}
+
+  header = header + b'\n'
 
   public_key_block = b'%(boundary)b%(public_key)b' %{b'boundary': boundary, b'public_key': public_key_dump}
 
@@ -285,6 +295,66 @@ def Format(public_key_dump, signature, message, msg_file_name):
   formatted_signed_msg = header + public_key_block + signature_block + message_block
 
   return formatted_signed_msg
+
+#Assume existência de \n no fim do header
+def Parsing(formatted_msg):
+  
+  divided = formatted_msg.partition(b'\n')
+
+  header = divided[0]
+
+  data = divided[2]
+
+  header_div = header.split(b';')
+
+  header_dict = {}
+
+  for attr in header_div:
+    attr_div = attr.split(b'= ')
+
+    #Verificando a existencia de '= '
+    if (len(attr_div)<2):
+      print('ERRO: Valor de atributo não presente para parsing')
+      exit()
+    
+    header_dict[attr_div[0]] = attr_div[1]
+
+  keys = header_dict.keys()
+
+  #Verificando a existencia de todos os campos necessários
+  if not ((b'protocol' in keys) and (b'padding' in keys) and (b'hash_type' in keys) and (b'boundary' in keys)):
+    print('ERRO: Atributo necessário não presente para parsing')
+    exit()
+
+  data_div = data.split(header_dict[b'boundary'])
+
+  #Verificando a existencia de campos com a chave pública, assinatura e mensagem. Esperado primeiro elemento vazio.
+  if len(data_div) < 4:
+    print('ERRO: Informação faltante no arquivo, erro na formatação')
+    exit()
+
+  #Load da chave pública
+  try:
+    public_key = serialization.load_pem_public_key(data_div[1])
+
+  except ValueError:
+    print("ERRO: Estrutura da chave pública não pode ser descodificada!")
+    exit()
+
+  except exceptions.UnsupportedAlgorithm:
+    print("ERRO: Tipo de chave pública não suportada!")
+    exit()
+
+  finally:
+    pass
+
+  #Load da assinatura
+  signature = data_div[2]
+
+  #Load da mensagem
+  message = data_div[3]
+
+  return header, public_key, [signature, message]
 
 if __name__ == "__main__":
 
