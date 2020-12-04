@@ -201,6 +201,7 @@ def main(arguments):
 
 #--------------------------------------------Funções utilizadas------------------------------------
 
+#Geração de chave
 def RSAGen(key_size): 
 
   public_e = 65537
@@ -221,24 +222,6 @@ def RSAGen(key_size):
 
   return public_numbers.n, public_numbers.e, private_numbers.d, private_key
 
-#Faz com public_key pois modulo nao suporta assinatura com OAEP
-'''
-def Enc(public_key, hash_sha3):
-
-  #Usando sha2-256
-  ciphertext = public_key.encrypt(hash_sha3, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
-
-  return ciphertext
-'''
-#Faz com private_key pois modulo nao suporta assinatura com OAEP
-'''
-def Dec(private_key, ciphertext):
-
-  hash_sha3 = private_key.decrypt(ciphertext, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))
-
-  return hash_sha3
-'''
-
 #SHA3 com 256 bit result/digest
 def HashSHA3(msg_bytes):
 
@@ -255,8 +238,6 @@ def Sign(private_key, message):
   msg_hash = HashSHA3(message)
 
   #Geração da assinatura
-  #signature = Enc(public_key, msg_hash)
-
   signature = private_key.sign(msg_hash, padding.PSS(padding.MGF1(hashes.SHA3_256()), padding.PSS.MAX_LENGTH), hashes.SHA3_256())
 
   return [signature, message]
@@ -269,21 +250,6 @@ def Verify(public_key, signed_msg, header_dict):
   signature = signed_msg[0]
   rcv_msg = signed_msg[1]
 
-  #Decifração da assinatura
-  '''
-  rcv_hash = Dec(private_key, signature)
-
-  #Verificação
-  new_hash = HashSHA3(rcv_msg)
-
-  if(new_hash == rcv_hash):
-    print("Assinatura correta.")
-    return True
-  
-  else:
-    print("Assinatura incorreta!!! Documento modificado ou de outro remetente.")
-    return False
-  '''
   #Verificação
 
   if header_dict[b'protocol'] != b'RSA' or header_dict[b'padding'] != b'PSS' or header_dict[b'hash_type'] != b'SHA3_256':
