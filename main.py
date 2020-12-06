@@ -241,7 +241,7 @@ def HashSHA3(msg_bytes):
 
   return digest
 
-#-------------------------Realizar a assinantura
+#-------------------------Realizar a assinatura
 def Sign(private_key, message):
 
   #Hashing da msg
