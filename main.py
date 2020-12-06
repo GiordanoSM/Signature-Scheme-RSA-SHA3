@@ -1,3 +1,6 @@
+# Giordano Süffert Monteiro - 17/0011160
+# Última modificação: 06/12/20
+
 # https://cryptography.io/en/latest/
 
 # Execução na linha de comando: python3 main.py arg1 arg2 arg3
