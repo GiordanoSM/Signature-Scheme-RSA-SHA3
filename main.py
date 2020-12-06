@@ -224,17 +224,11 @@ def RSAGen(key_size):
 
   private_key = rsa.generate_private_key(public_e, key_size)
 
-  if not(isinstance(private_key, rsa.RSAPrivateKeyWithSerialization)) or private_key.key_size != key_size:
-    print("Erro na obtenção da chave privada.")
-
   private_numbers = private_key.private_numbers()
 
   public_key = private_key.public_key()
 
   public_numbers = public_key.public_numbers()
-
-  if public_e != public_numbers.e:
-    print("Erro na definição do expoente público.")
 
   return public_numbers.n, public_numbers.e, private_numbers.d, private_key
 
@@ -254,7 +248,9 @@ def Sign(private_key, message):
   msg_hash = HashSHA3(message)
 
   #Geração da assinatura
-  signature = private_key.sign(msg_hash, padding.PSS(padding.MGF1(hashes.SHA3_256()), padding.PSS.MAX_LENGTH), hashes.SHA3_256())
+  signature = private_key.sign(msg_hash, 
+    padding.PSS(mgf= padding.MGF1(hashes.SHA3_256()), salt_length= padding.PSS.MAX_LENGTH),
+    hashes.SHA3_256())
 
   return [signature, message]
 
@@ -275,7 +271,9 @@ def Verify(public_key, signed_msg, header_dict):
   new_hash = HashSHA3(rcv_msg)
 
   try:
-    public_key.verify(signature, new_hash, padding.PSS(padding.MGF1(hashes.SHA3_256()), padding.PSS.MAX_LENGTH), hashes.SHA3_256())
+    public_key.verify(signature, new_hash, 
+      padding.PSS(mgf= padding.MGF1(hashes.SHA3_256()), salt_length= padding.PSS.MAX_LENGTH), 
+      hashes.SHA3_256())
 
   except exceptions.InvalidSignature:
     print("Assinatura incorreta!!! Documento modificado ou de outro remetente.")
@@ -295,7 +293,8 @@ def Format(public_key_dump, signature, message, msg_file_name):
   hash_type = b'SHA3_256'
   boundary = b'------714A286D976BF3E58D9D671E37CBCF7C'
 
-  header = b'protocol= %(protocol)b;padding= %(padding)b;hash_type= %(hash_type)b;boundary= %(boundary)b;filename= %(filename)b' %{b'protocol': protocol, b'padding': padding, b'hash_type': hash_type, b'boundary': boundary, b'filename': msg_file_name.encode()}
+  header = b'protocol= %(protocol)b;padding= %(padding)b;hash_type= %(hash_type)b;boundary= %(boundary)b;filename= %(filename)b' %{
+    b'protocol': protocol, b'padding': padding, b'hash_type': hash_type, b'boundary': boundary, b'filename': msg_file_name.encode()}
 
   header = header + b'\n'
 
