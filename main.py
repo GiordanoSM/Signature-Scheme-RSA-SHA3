@@ -1,4 +1,10 @@
+# Giordano Süffert Monteiro - 17/0011160
+# Última modificação: 06/12/20
+
 # https://cryptography.io/en/latest/
+
+# Execução na linha de comando: python3 main.py arg1 arg2 arg3
+# Python 3.7.1
 
 import sys
 
@@ -6,7 +12,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography import exceptions
 
-INCORRECT = False
 
 def main(arguments):
 
@@ -167,12 +172,22 @@ def main(arguments):
         have_pk_file = False
 
       #Leitura do arquivo formatado
-      with open(formatted_file_name, 'rb') as f:
-        formatted_signed_msg = f.read()
+      try:
+        with open(formatted_file_name, 'rb') as f:
+          formatted_signed_msg = f.read()
+      
+      except IOError:
+        print("ERRO: Arquivo não existente!")
+        exit()
+
+      finally:
+        pass
 
       #Parsing do arquivo assinado
-      header_dict, public_key, signed_msg = Parsing(formatted_signed_msg, have_pk_file)
+      header_dict, public_key_2, signed_msg = Parsing(formatted_signed_msg, have_pk_file)
  
+      if not have_pk_file: public_key = public_key_2
+
       status = Verify(public_key, signed_msg, header_dict)
 
       keys = header_dict.keys()
@@ -189,6 +204,7 @@ def main(arguments):
 
         print('Criado arquivo com a mensagem: {}'.format('new_'+file_name))
 
+  #-------------------------------Sem Operação----------------------------------
   else:
     print('ERRO: Operação desejada não definida.')
 
@@ -201,7 +217,7 @@ def main(arguments):
 
 #--------------------------------------------Funções utilizadas------------------------------------
 
-#Geração de chave
+#-------------------------Geração de chave
 def RSAGen(key_size): 
 
   public_e = 65537
@@ -222,7 +238,7 @@ def RSAGen(key_size):
 
   return public_numbers.n, public_numbers.e, private_numbers.d, private_key
 
-#SHA3 com 256 bit result/digest
+#-------------------------SHA3 com 256 bit result/digest
 def HashSHA3(msg_bytes):
 
   hash_sha3 = hashes.Hash(hashes.SHA3_256())
@@ -231,7 +247,7 @@ def HashSHA3(msg_bytes):
 
   return digest
 
-#Realizar a assinantura (deveria ser realizada pela key privada)
+#-------------------------Realizar a assinantura
 def Sign(private_key, message):
 
   #Hashing da msg
@@ -242,7 +258,7 @@ def Sign(private_key, message):
 
   return [signature, message]
 
-#Verificação da assinatura (deveria ser realizada pela key publica)
+#-------------------------Verificação da assinatura
 #Requer header com componentes esperadas
 #Realizando verificação somente do algoritmo, padding e hash usados na assinatura Sign()
 def Verify(public_key, signed_msg, header_dict):
@@ -271,21 +287,7 @@ def Verify(public_key, signed_msg, header_dict):
   print("Assinatura correta!")
   return True
 
-#Idealmente o destinatario ja deveria saber a key publica
-def Send(public_key, signed_msg, header_dict):
-
-  msg = signed_msg[1]
-
-  #Modifica a mensagem caso requerido (INCORRECT = True)
-  if len(msg) > 0 and INCORRECT:
-    msg = msg.swapcase()
-
-  signed_msg[1] = msg
-
-  #Passa a mensagem para o destinatário
-  return Verify(public_key, signed_msg, header_dict)
-
-#Baseada na formatação S/MIME
+#--------------------------------Formatação: Baseada na formatação S/MIME
 def Format(public_key_dump, signature, message, msg_file_name):
 
   protocol = b'RSA'
@@ -307,7 +309,7 @@ def Format(public_key_dump, signature, message, msg_file_name):
 
   return formatted_signed_msg
 
-#Assume existência de \n no fim do header
+#--------------------------------Parsing: assume existência de \n no fim do header
 def Parsing(formatted_msg, have_pk_file):
   
   divided = formatted_msg.partition(b'\n')
@@ -319,6 +321,8 @@ def Parsing(formatted_msg, have_pk_file):
   header_div = header.split(b';')
 
   header_dict = {}
+
+  public_key = b''
 
   for attr in header_div:
     attr_div = attr.split(b'= ')
@@ -368,6 +372,8 @@ def Parsing(formatted_msg, have_pk_file):
       pass
 
   return header_dict, public_key, [signature, message]
+
+#-------------------------------------------------------------
 
 if __name__ == "__main__":
 
